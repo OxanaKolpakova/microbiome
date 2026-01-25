@@ -1,3 +1,3 @@
 sample,fastq_1,fastq_2
-SAMPLE_PAIRED_END,/path/to/fastq/files/AEG588A1_S1_L002_R1_001.fastq.gz,/path/to/fastq/files/AEG588A1_S1_L002_R2_001.fastq.gz
-SAMPLE_SINGLE_END,/path/to/fastq/files/AEG588A4_S4_L003_R1_001.fastq.gz,
+all_33T,/mnt/sdb1/oxkolpakova/ngs_data/bacterium/micrononospora/all_33T.fastq.gz,
+all_36T,/mnt/sdb1/oxkolpakova/ngs_data/bacterium/micrononospora/all_36T.fastq.gz,
