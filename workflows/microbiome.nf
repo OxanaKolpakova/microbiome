@@ -4,6 +4,10 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 include { FASTQC                 } from '../modules/nf-core/fastqc/main'
+include { NANOFILT               } from '../modules/nf-core/nanofilt/main'
+include { FASTQC as FASTQC_2     } from '../modules/nf-core/fastqc/main'
+include { MINIMAP2_INDEX         } from '../modules/nf-core/minimap2/index/main'  
+include { MINIMAP2_ALIGN         } from '../modules/nf-core/minimap2/align/main'  
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -20,8 +24,9 @@ workflow MICROBIOME {
 
     take:
     ch_samplesheet // channel: samplesheet read in from --input
+    fasta          // channel: fasta reference
+    
     main:
-
     ch_versions = channel.empty()
     ch_multiqc_files = channel.empty()
     //
@@ -32,8 +37,46 @@ workflow MICROBIOME {
     )
     ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
     ch_versions = ch_versions.mix(FASTQC.out.versions.first())
-
     //
+    // MODULE: Run NanoFilt
+    //
+    NANOFILT (
+        ch_samplesheet,
+        []
+    )
+    ch_versions = ch_versions.mix(NANOFILT.out.versions.first())
+    ch_trimmed_reads = NANOFILT.out.filtreads
+    //
+    // MODULE: Run FastQC after NanoFilt
+    //
+    FASTQC_2 (
+        ch_trimmed_reads
+    )
+    ch_multiqc_files = ch_multiqc_files.mix(FASTQC_2.out.zip.collect{it[1]})
+    ch_versions = ch_versions.mix(FASTQC_2.out.versions.first())
+    //
+    // MODULE: Run Minimap2 Index
+    //
+    MINIMAP2_INDEX (
+        fasta
+    )
+    ch_versions = ch_versions.mix(MINIMAP2_INDEX.out.versions.first())
+    ch_index = MINIMAP2_INDEX.out.index
+    //
+    // MODULE: Run Minimap2 Align
+    //
+    MINIMAP2_ALIGN (
+        ch_trimmed_reads,
+        fasta,
+        true,
+        'bai',
+        false,
+        false
+)
+    ch_versions = ch_versions.mix(MINIMAP2_ALIGN.out.versions.first())
+    ch_bam = MINIMAP2_ALIGN.out.bam
+    ch_bai = MINIMAP2_ALIGN.out.index
+    //    
     // Collate and save software versions
     //
     def topic_versions = Channel.topic("versions")

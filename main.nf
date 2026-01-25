@@ -27,7 +27,6 @@ include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_micr
 // TODO nf-core: Remove this line if you don't need a FASTA file
 //   This is an example of how to use getGenomeAttribute() to fetch parameters
 //   from igenomes.config using `--genome`
-params.fasta = getGenomeAttribute('fasta')
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -42,14 +41,16 @@ workflow OXANAKOLPAKOVA_MICROBIOME {
 
     take:
     samplesheet // channel: samplesheet read in from --input
-
+    fasta       // channel: fasta
+    
     main:
 
     //
     // WORKFLOW: Run pipeline
     //
     MICROBIOME (
-        samplesheet
+        samplesheet,
+        fasta
     )
     emit:
     multiqc_report = MICROBIOME.out.multiqc_report // channel: /path/to/multiqc_report.html
@@ -75,14 +76,16 @@ workflow {
         params.input,
         params.help,
         params.help_full,
-        params.show_hidden
+        params.show_hidden,
+        params.fasta
     )
 
     //
     // WORKFLOW: Run main workflow
     //
     OXANAKOLPAKOVA_MICROBIOME (
-        PIPELINE_INITIALISATION.out.samplesheet
+        PIPELINE_INITIALISATION.out.samplesheet,
+        PIPELINE_INITIALISATION.out.fasta
     )
     //
     // SUBWORKFLOW: Run completion tasks

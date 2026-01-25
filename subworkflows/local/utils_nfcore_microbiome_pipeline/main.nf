@@ -36,6 +36,7 @@ workflow PIPELINE_INITIALISATION {
     help              // boolean: Display help message and exit
     help_full         // boolean: Show the full help message
     show_hidden       // boolean: Show hidden parameters in the help message
+    fasta             //  string: Path to custom reference fasta file
 
     main:
 
@@ -104,9 +105,13 @@ workflow PIPELINE_INITIALISATION {
         }
         .set { ch_samplesheet }
 
+    ch_fasta       = channel.value(file(fasta))
+                     .map{ file -> [ [], file] }
+
     emit:
     samplesheet = ch_samplesheet
     versions    = ch_versions
+    fasta       = ch_fasta
 }
 
 /*
