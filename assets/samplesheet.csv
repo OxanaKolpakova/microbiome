@@ -1,3 +1,3 @@
-sample,fastq_1,fastq_2
-all_33T,/mnt/sdb1/oxkolpakova/ngs_data/bacterium/micrononospora/all_33T.fastq.gz,
-all_36T,/mnt/sdb1/oxkolpakova/ngs_data/bacterium/micrononospora/all_36T.fastq.gz,
+sample,fastq_1,fastq_2,reference
+all_33T,/mnt/sdb1/oxkolpakova/ngs_data/bacterium/micrononospora/all_33T.fastq.gz,,https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/007/829/925/GCA_007829925.1_ASM782992v1/GCA_007829925.1_ASM782992v1_genomic.fna.gz
+all_36T,/mnt/sdb1/oxkolpakova/ngs_data/bacterium/micrononospora/all_36T.fastq.gz,,https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/016/598/485/GCF_016598485.1_ASM1659848v1/GCF_016598485.1_ASM1659848v1_genomic.fna.gz

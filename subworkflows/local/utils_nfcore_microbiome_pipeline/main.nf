@@ -88,30 +88,26 @@ workflow PIPELINE_INITIALISATION {
     channel
         .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
         .map {
-            meta, fastq_1, fastq_2 ->
+            meta, fastq_1, fastq_2, reference ->
                 if (!fastq_2) {
-                    return [ meta.id, meta + [ single_end:true ], [ fastq_1 ] ]
+                    return [ meta.id, meta + [ single_end:true ], [ fastq_1 ], [ reference ] ]
                 } else {
-                    return [ meta.id, meta + [ single_end:false ], [ fastq_1, fastq_2 ] ]
+                    return [ meta.id, meta + [ single_end:false ], [ fastq_1, fastq_2 ], [ reference ] ]
                 }
         }
-        .groupTuple()
-        .map { samplesheet ->
-            validateInputSamplesheet(samplesheet)
-        }
         .map {
-            meta, fastqs ->
-                return [ meta, fastqs.flatten() ]
+            _meta1, meta2, fastqs, reference ->
+                return [ meta2, fastqs.flatten(), reference ]
         }
         .set { ch_samplesheet }
 
-    ch_fasta       = channel.value(file(fasta))
-                     .map{ file -> [ [], file] }
+    ch_reads = ch_samplesheet.map { meta, fastqs, _reference -> [ meta, fastqs ] }
+    ch_fasta = ch_samplesheet.map { meta, _fastqs, reference -> [ meta, reference[0] ] }
 
     emit:
-    samplesheet = ch_samplesheet
-    versions    = ch_versions
+    reads       = ch_reads
     fasta       = ch_fasta
+    versions    = ch_versions
 }
 
 /*
@@ -172,21 +168,6 @@ workflow PIPELINE_COMPLETION {
 //
 def validateInputParameters() {
     genomeExistsError()
-}
-
-//
-// Validate channels from input samplesheet
-//
-def validateInputSamplesheet(input) {
-    def (metas, fastqs) = input[1..2]
-
-    // Check that multiple runs of the same sample are of the same datatype i.e. single-end / paired-end
-    def endedness_ok = metas.collect{ meta -> meta.single_end }.unique().size == 1
-    if (!endedness_ok) {
-        error("Please check input samplesheet -> Multiple runs of a sample must be of the same datatype i.e. single-end or paired-end: ${metas[0].id}")
-    }
-
-    return [ metas[0], fastqs ]
 }
 //
 // Get attribute from genome config file e.g. fasta

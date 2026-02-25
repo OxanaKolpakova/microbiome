@@ -40,7 +40,7 @@ include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_micr
 workflow OXANAKOLPAKOVA_MICROBIOME {
 
     take:
-    samplesheet // channel: samplesheet read in from --input
+    reads // channel: samplesheet read in from --input
     fasta       // channel: fasta
     
     main:
@@ -49,7 +49,7 @@ workflow OXANAKOLPAKOVA_MICROBIOME {
     // WORKFLOW: Run pipeline
     //
     MICROBIOME (
-        samplesheet,
+        reads,
         fasta
     )
     emit:
@@ -84,7 +84,7 @@ workflow {
     // WORKFLOW: Run main workflow
     //
     OXANAKOLPAKOVA_MICROBIOME (
-        PIPELINE_INITIALISATION.out.samplesheet,
+        PIPELINE_INITIALISATION.out.reads,
         PIPELINE_INITIALISATION.out.fasta
     )
     //

@@ -6,8 +6,15 @@
 include { FASTQC                 } from '../modules/nf-core/fastqc/main'
 include { NANOFILT               } from '../modules/nf-core/nanofilt/main'
 include { FASTQC as FASTQC_2     } from '../modules/nf-core/fastqc/main'
-include { MINIMAP2_INDEX         } from '../modules/nf-core/minimap2/index/main'  
 include { MINIMAP2_ALIGN         } from '../modules/nf-core/minimap2/align/main'  
+include { MOSDEPTH               } from '../modules/nf-core/mosdepth/main'
+include { SAMTOOLS_FLAGSTAT      } from '../modules/nf-core/samtools/flagstat/main'
+include { GUNZIP                 } from '../modules/nf-core/gunzip/main' 
+include { SAMTOOLS_FAIDX         } from '../modules/nf-core/samtools/faidx/main'  
+include { MEDAKA_CONSENSUS       } from '../modules/local/medaka/main'
+include { QUAST                  } from '../modules/nf-core/quast/main'
+include { BAKTA_BAKTADBDOWNLOAD  } from '../modules/nf-core/bakta/baktadbdownload/main' 
+include { BAKTA_BAKTA            } from '../modules/nf-core/bakta/bakta/main'
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -23,8 +30,8 @@ include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_micr
 workflow MICROBIOME {
 
     take:
-    ch_samplesheet // channel: samplesheet read in from --input
-    fasta          // channel: fasta reference
+    reads          // channel: samplesheet read in from --input
+    reference          // channel: fasta reference in from --input
     
     main:
     ch_versions = channel.empty()
@@ -33,7 +40,7 @@ workflow MICROBIOME {
     // MODULE: Run FastQC
     //
     FASTQC (
-        ch_samplesheet
+        reads
     )
     ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
     ch_versions = ch_versions.mix(FASTQC.out.versions.first())
@@ -41,7 +48,7 @@ workflow MICROBIOME {
     // MODULE: Run NanoFilt
     //
     NANOFILT (
-        ch_samplesheet,
+        reads,
         []
     )
     ch_versions = ch_versions.mix(NANOFILT.out.versions.first())
@@ -55,31 +62,132 @@ workflow MICROBIOME {
     ch_multiqc_files = ch_multiqc_files.mix(FASTQC_2.out.zip.collect{it[1]})
     ch_versions = ch_versions.mix(FASTQC_2.out.versions.first())
     //
-    // MODULE: Run Minimap2 Index
-    //
-    MINIMAP2_INDEX (
-        fasta
-    )
-    ch_versions = ch_versions.mix(MINIMAP2_INDEX.out.versions.first())
-    ch_index = MINIMAP2_INDEX.out.index
-    //
     // MODULE: Run Minimap2 Align
     //
+    reads_fasta = ch_trimmed_reads
+        .join(reference)
+        .multiMap {
+            meta, rds, fa ->
+            reads: [ meta, rds ]
+            reference: [ meta, fa ]
+        }
+    ch_trimmed_reads = reads_fasta.reads
+    ch_reference     = reads_fasta.reference
     MINIMAP2_ALIGN (
         ch_trimmed_reads,
-        fasta,
+        ch_reference,
         true,
         'bai',
         false,
         false
-)
+    )
     ch_versions = ch_versions.mix(MINIMAP2_ALIGN.out.versions.first())
     ch_bam = MINIMAP2_ALIGN.out.bam
     ch_bai = MINIMAP2_ALIGN.out.index
+    //
+    // MODULE: Run Mosdepth
+    //
+    ch_align    = ch_bam.join(ch_bai)
+    ch_mosdepth = ch_align.join(ch_reference).multiMap {
+        meta, bam, bai, fa ->
+        align: [ meta, bam, bai, [] ]
+        reference: [ meta, fa ]
+    }
+    ch_mosdepth_input   = ch_mosdepth.align
+    ch_reference        = ch_mosdepth.reference
+    MOSDEPTH (
+        ch_mosdepth_input,
+        ch_reference
+    )
+    ch_multiqc_files = ch_multiqc_files.mix(MOSDEPTH.out.global_txt.collect{it[1]})
+    //        
+    // MODULE: Run Flagstat
+    //
+    SAMTOOLS_FLAGSTAT (
+        ch_bam.join(ch_bai)
+    )
+    ch_versions      = ch_versions.mix(SAMTOOLS_FLAGSTAT.out.versions.first())
+    ch_multiqc_files = ch_multiqc_files.mix(SAMTOOLS_FLAGSTAT.out.flagstat.collect{it[1]})
     //    
+    // MODULE: Run Gunzip
+    //
+    GUNZIP (
+        ch_reference
+    )
+    ch_reference = GUNZIP.out.gunzip
+    //    
+    // MODULE: Run Faidx
+    //
+    SAMTOOLS_FAIDX (
+        ch_reference,
+        [[],[]],
+        false
+    )
+    ch_fai = SAMTOOLS_FAIDX.out.fai
+    // 
+    // MODULE: Run Medaka Consensus
+    //
+    ch_reference_fai        = ch_reference.join(ch_fai)
+    ch_align_reference_fai  = ch_align
+        .join(ch_reference_fai)
+        .multiMap {
+            meta, bam, bai, fa, fai ->
+                align: [ meta, bam, bai ]
+        reference_fai: [ meta, fa, fai ]
+        }
+    ch_align        = ch_align_reference_fai.align
+    ch_reference_fai    = ch_align_reference_fai.reference_fai
+    MEDAKA_CONSENSUS (
+        ch_align,
+        ch_reference_fai
+    )
+        ch_contigs = MEDAKA_CONSENSUS.out.fa
+    // 
+    // MODULE: Run Bacta DB Download
+    //
+    BAKTA_BAKTADBDOWNLOAD ()
+    ch_versions = ch_versions.mix(BAKTA_BAKTADBDOWNLOAD.out.versions)
+    ch_bacta_db = BAKTA_BAKTADBDOWNLOAD.out.db
+    // 
+    // MODULE: Run Bacta Annotation
+    //
+    BAKTA_BAKTA (
+        ch_contigs,
+        ch_bacta_db,
+        [],
+        [],
+        [],
+        [],
+    )
+    ch_gff              = BAKTA_BAKTA.out.gff
+    ch_versions         = ch_versions.mix(BAKTA_BAKTA.out.versions.first())
+    ch_multiqc_files    = ch_multiqc_files.mix(BAKTA_BAKTA.out.txt.map{it[1]})
+    // 
+    // MODULE: Run Quast
+    //
+    ch_reference_contigs_gff  = ch_reference
+        .join(ch_contigs)
+        .join(ch_gff)
+        .multiMap {
+            meta, ref, contigs, gff ->
+                reference: [ meta, ref ]
+                  contigs: [ meta, contigs ]
+                      gff: [ meta, gff ]
+        }
+    ch_reference    = ch_reference_contigs_gff.reference
+    ch_contigs      = ch_reference_contigs_gff.contigs
+    ch_gff          = ch_reference_contigs_gff.gff
+    QUAST (
+        ch_reference,
+        ch_contigs,
+        ch_gff,
+    )
+    ch_versions = ch_versions.mix(BAKTA_BAKTA.out.versions.first())
+    ch_multiqc_files = ch_multiqc_files.mix(BAKTA_BAKTA.out.txt.map{it[1]})
+    // 
     // Collate and save software versions
     //
-    def topic_versions = Channel.topic("versions")
+    def topic_versions = channel.topic("versions")
         .distinct()
         .branch { entry ->
             versions_file: entry instanceof Path

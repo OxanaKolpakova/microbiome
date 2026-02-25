@@ -26,8 +26,15 @@
                 "exists": true,
                 "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
                 "errorMessage": "FastQ file for reads 2 cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+            },
+            "reference": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^(.*)\\.(fa|fasta|fna)(\\.gz)?$",
+                "errorMessage": "Reference genome file must be provided, must exist, and must have extension '.fa', '.fasta', '.fna' (optionally with '.gz')"
             }
         },
-        "required": ["sample", "fastq_1"]
+        "required": ["sample", "fastq_1", "reference"]
     }
 }
